@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const refCodeSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true },
@@ -6,9 +6,9 @@ const refCodeSchema = new mongoose.Schema({
   discountPercent: { type: Number, default: 10 },
   applicablePlan: { type: String, enum: ['all', 'one-time', 'installment'], default: 'all' },
   active: { type: Boolean, default: true },
-  created: { type: String, required: true }, // Format: YYYY-MM-DD
+  created: { type: String, required: true },
   uses: { type: Number, default: 0 },
-  creator: { type: String } // username of sub-admin or "admin"
+  creator: { type: String }
 });
 
-module.exports = mongoose.model('RefCode', refCodeSchema);
+export default mongoose.model('RefCode', refCodeSchema);

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -12,4 +12,4 @@ const paymentSchema = new mongoose.Schema({
   referralCode: { type: String }
 });
 
-module.exports = mongoose.model('Payment', paymentSchema);
+export default mongoose.model('Payment', paymentSchema);

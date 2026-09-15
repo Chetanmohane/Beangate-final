@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const planConfigSchema = new mongoose.Schema({
   courseName: { type: String, default: "MERN Stack" },
@@ -41,4 +41,4 @@ const planConfigSchema = new mongoose.Schema({
   linkedinUrl: { type: String, default: "" },
 });
 
-module.exports = mongoose.model('PlanConfig', planConfigSchema);
+export default mongoose.model('PlanConfig', planConfigSchema);

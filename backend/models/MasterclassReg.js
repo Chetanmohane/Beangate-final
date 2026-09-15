@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const masterclassRegSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -10,4 +10,4 @@ const masterclassRegSchema = new mongoose.Schema({
   timestamp: { type: String }
 });
 
-module.exports = mongoose.model('MasterclassReg', masterclassRegSchema);
+export default mongoose.model('MasterclassReg', masterclassRegSchema);

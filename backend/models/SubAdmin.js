@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const subAdminSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -9,4 +9,4 @@ const subAdminSchema = new mongoose.Schema({
   createdDate: { type: String, required: true }
 });
 
-module.exports = mongoose.model('SubAdmin', subAdminSchema);
+export default mongoose.model('SubAdmin', subAdminSchema);
