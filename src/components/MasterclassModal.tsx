@@ -28,7 +28,7 @@ const MasterclassModal: React.FC<MasterclassModalProps> = ({
   onClose: externalOnClose,
 }) => {
   const [internalIsOpen, setInternalIsOpen] = useState<boolean>(false);
-  const [batchStartDate, setBatchStartDate] = useState<string>("21 September 2026");
+  const [batchStartDate, setBatchStartDate] = useState<string>("22 September 2026");
   const [showForm, setShowForm] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitted, setSubmitted] = useState<boolean>(false);

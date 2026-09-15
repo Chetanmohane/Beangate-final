@@ -81,7 +81,7 @@ const Footer = () => {
           {/* Company Info */}
           <div>
             <div className="text-white font-bold text-xl flex items-center mb-6">
-              <img src={logo} alt="" className="w-15"/>
+              <img src={logo} alt="BeanGate Logo" className="h-10 sm:h-12 w-auto object-contain mr-3"/>
               <div>
                 <span className="block leading-tight">BeanGate</span>
                 <span className="block text-[10px] font-normal text-gray-400">IT SOLUTIONS PVT. LTD.</span>

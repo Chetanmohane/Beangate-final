@@ -91,7 +91,7 @@ const initializeDBData = async () => {
         if (existing.oneTimeDiscountPercent === undefined) { existing.oneTimeDiscountPercent = existing.discountPercent ?? 10; updated = true; }
         if (existing.installment1DiscountPercent === undefined) { existing.installment1DiscountPercent = existing.discountPercent ?? 10; updated = true; }
         if (existing.installment2DiscountPercent === undefined) { existing.installment2DiscountPercent = existing.discountPercent ?? 10; updated = true; }
-        if (!existing.batchStartDate) { existing.batchStartDate = "21 September 2026"; updated = true; }
+        if (!existing.batchStartDate) { existing.batchStartDate = "22 September 2026"; updated = true; }
         if (existing.offerTimerHours === undefined) { existing.offerTimerHours = 4; updated = true; }
         if (!existing.offerTimerMode) { existing.offerTimerMode = "daily"; updated = true; }
         if (!existing.whatsappNumber) { existing.whatsappNumber = "919876543210"; updated = true; }

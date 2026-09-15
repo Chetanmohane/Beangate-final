@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo-beangate.png";
 import {
   FaUsers, FaMoneyBillWave, FaTags, FaSignOutAlt,
   FaChartBar, FaCheckCircle, FaClock, FaSearch,
@@ -135,7 +136,7 @@ const DEFAULT_PLAN_CONFIG: PlanConfig = {
   cities: ["Bhopal", "Indore", "Jabalpur", "Other"],
   totalSeats: 50,
   manualSeatsOffset: 32,
-  batchStartDate: "21 September 2026",
+  batchStartDate: "22 September 2026",
   offerTimerHours: 4,
   offerTimerMode: "daily",
   offerTargetDate: "",
@@ -348,8 +349,8 @@ const LoginPage = ({ onLogin }: { onLogin: (role: "admin" | "subadmin", name: st
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 mb-4 shadow-lg shadow-indigo-500/10">
-            <FaShieldAlt className="text-indigo-400 text-3xl" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 mb-4 shadow-lg shadow-indigo-500/10 p-2">
+            <img src={logo} alt="BeanGate Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">BeanGate Admin</h1>
           <p className="text-slate-400 text-sm mt-2 font-medium">Secure admin control panel</p>
@@ -587,7 +588,7 @@ const PlansTab = () => {
               🚀 Popup Batch Starts Date (Calendar Picker + Custom Text)
             </label>
             <span className="text-xs font-bold text-orange-600 dark:text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-md border border-orange-500/20">
-              Current Setting: {cfg.batchStartDate ?? "21 September 2026"}
+              Current Setting: {cfg.batchStartDate ?? "22 September 2026"}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -613,9 +614,9 @@ const PlansTab = () => {
               </label>
               <input
                 className={inputCls}
-                value={cfg.batchStartDate ?? "21 September 2026"}
+                value={cfg.batchStartDate ?? "22 September 2026"}
                 onChange={e => update("batchStartDate", e.target.value)}
-                placeholder="e.g. 21 September 2026"
+                placeholder="e.g. 22 September 2026"
               />
             </div>
           </div>
@@ -4262,9 +4263,7 @@ const AdminPanel = () => {
       <aside className={`fixed top-0 left-0 h-full w-64 bg-[#050b18] border-r border-white/5 flex flex-col z-30 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         {/* Brand */}
         <div className="px-6 py-5 border-b border-white/5 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center shadow-lg shadow-indigo-500/5">
-            <FaShieldAlt className="text-indigo-400 text-lg" />
-          </div>
+          <img src={logo} alt="BeanGate Logo" className="w-10 h-10 object-contain" />
           <div>
             <p className="font-extrabold text-white text-base leading-none">BeanGate</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{userRole === "admin" ? "Admin Panel" : "Sub-Admin"}</p>

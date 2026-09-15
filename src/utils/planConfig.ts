@@ -64,7 +64,7 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig = {
   cities: ["Bhopal", "Indore", "Jabalpur", "Other"],
   totalSeats: 50,
   manualSeatsOffset: 32,
-  batchStartDate: "21 September 2026",
+  batchStartDate: "22 September 2026",
   offerTimerHours: 4,
   offerTimerMode: "daily",
   offerTargetDate: "",
