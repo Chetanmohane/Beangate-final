@@ -163,7 +163,16 @@ const loadPlanConfig = (): PlanConfig => {
 };
 
 const savePlanConfig = (cfg: PlanConfig) => {
+  // Save to localStorage as a quick local cache
   localStorage.setItem("bg_plan_config", JSON.stringify(cfg));
+  // Also sync to backend DB (fire-and-forget) so all devices get the same data
+  try {
+    fetch("/api/planconfig", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cfg),
+    }).catch(() => {});
+  } catch (e) {}
   try {
     window.dispatchEvent(new Event("bg_config_updated"));
     window.dispatchEvent(new Event("storage"));
@@ -423,35 +432,38 @@ const PlansTab = () => {
   const [dbId, setDbId] = useState<string | null>(null);
 
   useEffect(() => {
-    const local = loadPlanConfig();
+    // DB is always the source of truth. localStorage is only a fallback if DB is unreachable.
     fetch("/api/planconfig")
       .then(res => res.json())
       .then(data => {
         if (data && typeof data === "object" && !data.message && (data.oneTimePrice || data.courseName)) {
+          // DB data wins — do NOT let localStorage override the DB values
           const merged: PlanConfig = {
             ...DEFAULT_PLAN_CONFIG,
             ...data,
-            ...local,
-            oneTimePrice: Number(data.oneTimePrice) || local.oneTimePrice || DEFAULT_PLAN_CONFIG.oneTimePrice,
-            oneTimeOriginalPrice: Number(data.oneTimeOriginalPrice) || local.oneTimeOriginalPrice || DEFAULT_PLAN_CONFIG.oneTimeOriginalPrice,
-            installment1Price: Number(data.installment1Price) || local.installment1Price || DEFAULT_PLAN_CONFIG.installment1Price,
-            installment2Price: Number(data.installment2Price) || local.installment2Price || DEFAULT_PLAN_CONFIG.installment2Price,
-            discountPercent: Number(data.discountPercent) || local.discountPercent || DEFAULT_PLAN_CONFIG.discountPercent,
-            oneTimeDiscountPercent: Number(data.oneTimeDiscountPercent ?? local.oneTimeDiscountPercent ?? 10),
-            installment1DiscountPercent: Number(data.installment1DiscountPercent ?? local.installment1DiscountPercent ?? 10),
-            installment2DiscountPercent: Number(data.installment2DiscountPercent ?? local.installment2DiscountPercent ?? 10),
-            oneTimeFeatures: Array.isArray(data.oneTimeFeatures) && data.oneTimeFeatures.length > 0 ? data.oneTimeFeatures : (local.oneTimeFeatures || DEFAULT_PLAN_CONFIG.oneTimeFeatures),
-            installmentFeatures: Array.isArray(data.installmentFeatures) && data.installmentFeatures.length > 0 ? data.installmentFeatures : (local.installmentFeatures || DEFAULT_PLAN_CONFIG.installmentFeatures),
-            courses: Array.isArray(data.courses) && data.courses.length > 0 ? data.courses : (local.courses || DEFAULT_PLAN_CONFIG.courses),
-            colleges: Array.isArray(data.colleges) && data.colleges.length > 0 ? data.colleges : (local.colleges || DEFAULT_PLAN_CONFIG.colleges),
-            cities: Array.isArray(data.cities) && data.cities.length > 0 ? data.cities : (local.cities || DEFAULT_PLAN_CONFIG.cities),
+            // Ensure numeric types are correct
+            oneTimePrice: Number(data.oneTimePrice) || DEFAULT_PLAN_CONFIG.oneTimePrice,
+            oneTimeOriginalPrice: Number(data.oneTimeOriginalPrice) || DEFAULT_PLAN_CONFIG.oneTimeOriginalPrice,
+            heroOfferPrice: Number(data.heroOfferPrice) || Number(data.oneTimePrice) || DEFAULT_PLAN_CONFIG.heroOfferPrice,
+            installment1Price: Number(data.installment1Price) || DEFAULT_PLAN_CONFIG.installment1Price,
+            installment2Price: Number(data.installment2Price) || DEFAULT_PLAN_CONFIG.installment2Price,
+            discountPercent: Number(data.discountPercent) || DEFAULT_PLAN_CONFIG.discountPercent,
+            oneTimeDiscountPercent: Number(data.oneTimeDiscountPercent ?? data.discountPercent ?? 10),
+            installment1DiscountPercent: Number(data.installment1DiscountPercent ?? data.discountPercent ?? 10),
+            installment2DiscountPercent: Number(data.installment2DiscountPercent ?? data.discountPercent ?? 10),
+            oneTimeFeatures: Array.isArray(data.oneTimeFeatures) && data.oneTimeFeatures.length > 0 ? data.oneTimeFeatures : DEFAULT_PLAN_CONFIG.oneTimeFeatures,
+            installmentFeatures: Array.isArray(data.installmentFeatures) && data.installmentFeatures.length > 0 ? data.installmentFeatures : DEFAULT_PLAN_CONFIG.installmentFeatures,
+            courses: Array.isArray(data.courses) && data.courses.length > 0 ? data.courses : DEFAULT_PLAN_CONFIG.courses,
+            colleges: Array.isArray(data.colleges) && data.colleges.length > 0 ? data.colleges : DEFAULT_PLAN_CONFIG.colleges,
+            cities: Array.isArray(data.cities) && data.cities.length > 0 ? data.cities : DEFAULT_PLAN_CONFIG.cities,
           };
           setCfg(merged);
-          savePlanConfig(merged);
+          // Update localStorage cache to match DB so all future fallbacks are correct
+          localStorage.setItem("bg_plan_config", JSON.stringify(merged));
           if (data._id) setDbId(data._id);
         } else {
-          setCfg(local);
-          savePlanConfig(local);
+          // DB returned nothing useful — fall back to localStorage then defaults
+          setCfg(loadPlanConfig());
         }
       })
       .catch(err => {
@@ -481,8 +493,6 @@ const PlansTab = () => {
     update(plan, (cfg[plan] || []).filter((_, i) => i !== idx));
 
   const handleSave = async () => {
-    // Save to local storage for instant fallback and UI reactivity
-    savePlanConfig(cfg);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
 
@@ -490,7 +500,7 @@ const PlansTab = () => {
     delete (payload as any)._id;
     delete (payload as any).__v;
 
-    // Sync with backend API database
+    // Always save to backend DB first — DB is the single source of truth
     try {
       const url = dbId ? `/api/planconfig/${dbId}` : "/api/planconfig";
       const res = await fetch(url, {
@@ -502,15 +512,21 @@ const PlansTab = () => {
         const savedData = await res.json();
         if (savedData && savedData._id) setDbId(savedData._id);
         if (savedData && typeof savedData === "object") {
-          const merged = { ...cfg, ...savedData };
+          // Use exactly what the DB returned — update local state and localStorage cache
+          const merged = { ...DEFAULT_PLAN_CONFIG, ...savedData };
           setCfg(merged);
-          savePlanConfig(merged);
+          // Update localStorage cache to match what DB has
+          localStorage.setItem("bg_plan_config", JSON.stringify(merged));
+          window.dispatchEvent(new Event("bg_config_updated"));
         }
       } else {
         console.error("Backend API save failed with status:", res.status);
+        // Fallback: save to localStorage only
+        localStorage.setItem("bg_plan_config", JSON.stringify(cfg));
       }
     } catch (e) {
       console.warn("Backend sync failed, config saved locally.", e);
+      localStorage.setItem("bg_plan_config", JSON.stringify(cfg));
     }
   };
 
@@ -3801,18 +3817,20 @@ const AdminPanel = () => {
   const [deletePayTarget, setDeletePayTarget] = useState<{ id?: string; transactionId: string; email: string } | null>(null);
   const navigate = useNavigate();
 
-  // Stateful student registration lists backed by localStorage
+  // All data fetched exclusively from MongoDB via API — localStorage is NOT used as a data source
+  // This ensures mobile and laptop (and all devices) always show the same data
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [masterclassRegs, setMasterclassRegs] = useState<MasterclassReg[]>([]);
 
   const fetchRegistrationsAndPayments = async () => {
-    // Sync referral codes from database first so sub-admin filtering works properly
+    // Sync referral codes from database
     try {
       const codeRes = await fetch("/api/refcodes");
       if (codeRes.ok) {
         const codeData = await codeRes.json();
         if (Array.isArray(codeData)) {
+          // Only keep in memory for this session — do not persist to localStorage
           localStorage.setItem("bg_ref_codes", JSON.stringify(codeData));
         }
       }
@@ -3820,122 +3838,51 @@ const AdminPanel = () => {
       console.warn("Failed to sync referral codes from server:", e);
     }
 
-    // 1. Fetch Registrations from Database
+    // 1. Fetch Registrations — DB is the single source of truth
     try {
       const regRes = await fetch("/api/registrations");
       if (regRes.ok) {
         const regData = await regRes.json();
         if (Array.isArray(regData)) {
           setRegistrations(regData);
-          localStorage.setItem("bg_registrations", JSON.stringify(regData));
         }
-      } else {
-        const storedStr = localStorage.getItem("bg_registrations");
-        if (storedStr) setRegistrations(JSON.parse(storedStr));
       }
+      // No localStorage fallback — stale local data must never override live DB data
     } catch (e) {
-      const storedStr = localStorage.getItem("bg_registrations");
-      if (storedStr) setRegistrations(JSON.parse(storedStr));
+      console.warn("Failed to fetch registrations from DB", e);
     }
 
-    // 2. Fetch Payments from Database
+    // 2. Fetch Payments — DB is the single source of truth
     try {
       const payRes = await fetch("/api/payments");
       if (payRes.ok) {
         const payData = await payRes.json();
         if (Array.isArray(payData)) {
           setPayments(payData);
-          localStorage.setItem("bg_payments", JSON.stringify(payData));
         }
-      } else {
-        const storedStr = localStorage.getItem("bg_payments");
-        if (storedStr) setPayments(JSON.parse(storedStr));
       }
+      // No localStorage fallback
     } catch (e) {
-      const storedStr = localStorage.getItem("bg_payments");
-      if (storedStr) setPayments(JSON.parse(storedStr));
+      console.warn("Failed to fetch payments from DB", e);
     }
 
-    // 3. Fetch Masterclass Registrations from Database
+    // 3. Fetch Masterclass Registrations — DB is the single source of truth
     try {
       const mcRes = await fetch("/api/masterclass-registrations");
       if (mcRes.ok) {
         const mcData = await mcRes.json();
         if (Array.isArray(mcData)) {
           setMasterclassRegs(mcData);
-          localStorage.setItem("bg_masterclass_regs", JSON.stringify(mcData));
         }
-      } else {
-        const storedStr = localStorage.getItem("bg_masterclass_regs");
-        if (storedStr) setMasterclassRegs(JSON.parse(storedStr));
       }
+      // No localStorage fallback
     } catch (e) {
-      const storedStr = localStorage.getItem("bg_masterclass_regs");
-      if (storedStr) setMasterclassRegs(JSON.parse(storedStr));
-    }
-  };
-
-  const autoMigrateData = async () => {
-    try {
-      const dummyEmails = ["rahul.sharma@gmail.com", "priya.verma@gmail.com", "aman.gupta@gmail.com"];
-      let migrated = false;
-
-      const storedRegs = JSON.parse(localStorage.getItem("bg_registrations") || "[]");
-      if (storedRegs.length > 0) {
-        for (const reg of storedRegs) {
-          if (!reg._id && !dummyEmails.includes(reg.email?.toLowerCase())) {
-            await fetch("/api/registrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reg) });
-            migrated = true;
-          }
-        }
-      }
-
-      const storedPays = JSON.parse(localStorage.getItem("bg_payments") || "[]");
-      if (storedPays.length > 0) {
-        for (const pay of storedPays) {
-          if (!pay._id && !dummyEmails.includes(pay.email?.toLowerCase())) {
-            await fetch("/api/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pay) });
-            migrated = true;
-          }
-        }
-      }
-
-      const storedSubs = JSON.parse(localStorage.getItem("bg_subadmins") || "[]");
-      if (storedSubs.length > 0) {
-        for (const sub of storedSubs) {
-          if (!sub._id) {
-            await fetch("/api/subadmins", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: sub.name, username: sub.username, password: sub.password, referralCode: sub.username + "10", status: sub.status, createdDate: sub.created || new Date().toISOString().split("T")[0]
-              })
-            });
-            migrated = true;
-          }
-        }
-      }
-
-      const storedCodes = JSON.parse(localStorage.getItem("bg_ref_codes") || "[]");
-      if (storedCodes.length > 0) {
-        for (const code of storedCodes) {
-          if (!code._id) {
-            await fetch("/api/refcodes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(code) });
-            migrated = true;
-          }
-        }
-      }
-
-      if (migrated) {
-        fetchRegistrationsAndPayments();
-      }
-    } catch (e) {
-      console.error("Silent migration failed", e);
+      console.warn("Failed to fetch masterclass registrations from DB", e);
     }
   };
 
   useEffect(() => {
-    autoMigrateData().then(() => fetchRegistrationsAndPayments());
+    fetchRegistrationsAndPayments();
 
     window.addEventListener("bg_registration_added", fetchRegistrationsAndPayments);
     window.addEventListener("bg_payment_added", fetchRegistrationsAndPayments);
@@ -4030,6 +3977,7 @@ const AdminPanel = () => {
   };
 
   const handleEditRegistration = async (oldEmail: string, oldPhone: string, updatedReg: Registration, id?: string) => {
+    // Update local state immediately for responsive UI
     setRegistrations(prev => prev.map(r => {
       const isMatch = (id && ((r as any)._id === id || (r as any).id === id)) || 
                       (oldEmail && r.email && r.email.toLowerCase() === oldEmail.toLowerCase()) || 
@@ -4037,22 +3985,7 @@ const AdminPanel = () => {
       return isMatch ? { ...r, ...updatedReg } : r;
     }));
 
-    try {
-      const storedStr = localStorage.getItem("bg_registrations");
-      if (storedStr) {
-        const stored: Registration[] = JSON.parse(storedStr);
-        const updated = stored.map(r => {
-          const isMatch = (id && ((r as any)._id === id || (r as any).id === id)) || 
-                          (oldEmail && r.email && r.email.toLowerCase() === oldEmail.toLowerCase()) || 
-                          (oldPhone && r.phone && r.phone === oldPhone);
-          return isMatch ? { ...r, ...updatedReg } : r;
-        });
-        localStorage.setItem("bg_registrations", JSON.stringify(updated));
-      }
-    } catch (e) {
-      console.error("Error updating localStorage on registration edit", e);
-    }
-
+    // Persist to DB (source of truth)
     if (id) {
       try {
         await fetch(`/api/registrations/${id}`, {

@@ -79,6 +79,7 @@ export const DEFAULT_PLAN_CONFIG: PlanConfig = {
   contactEmail: "info@beangates.com, beangate.official@gmail.com",
 };
 
+// Only used as a temporary offline fallback — DB is always the source of truth
 export const getStoredPlanConfig = (): PlanConfig => {
   try {
     const s = localStorage.getItem("bg_plan_config");
@@ -89,54 +90,59 @@ export const getStoredPlanConfig = (): PlanConfig => {
 };
 
 export const usePlanConfig = (): PlanConfig => {
+  // Start with a temporary local value while we wait for the DB fetch
   const [cfg, setCfg] = useState<PlanConfig>(getStoredPlanConfig());
 
   useEffect(() => {
-    const loadConfig = () => {
-      try {
-        const stored = localStorage.getItem("bg_plan_config");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setCfg({ ...DEFAULT_PLAN_CONFIG, ...parsed });
-        }
-      } catch (e) {}
-    };
-
-    const fetchConfig = () => {
-      loadConfig();
+    const fetchFromDB = () => {
       fetch("/api/planconfig")
         .then(res => {
-          if (!res.ok) throw new Error();
+          if (!res.ok) throw new Error("planconfig fetch failed");
           return res.json();
         })
         .then(data => {
-          if (data && typeof data === "object") {
-            setCfg(prev => ({ ...prev, ...data }));
+          if (data && typeof data === "object" && !data.message) {
+            // DB data always wins — merge with defaults for any missing fields
+            const merged: PlanConfig = {
+              ...DEFAULT_PLAN_CONFIG,
+              ...data,
+              oneTimePrice: Number(data.oneTimePrice) || DEFAULT_PLAN_CONFIG.oneTimePrice,
+              oneTimeOriginalPrice: Number(data.oneTimeOriginalPrice) || DEFAULT_PLAN_CONFIG.oneTimeOriginalPrice,
+              heroOfferPrice: Number(data.heroOfferPrice) || Number(data.oneTimePrice) || DEFAULT_PLAN_CONFIG.heroOfferPrice,
+              installment1Price: Number(data.installment1Price) || DEFAULT_PLAN_CONFIG.installment1Price,
+              installment2Price: Number(data.installment2Price) || DEFAULT_PLAN_CONFIG.installment2Price,
+              discountPercent: Number(data.discountPercent) || DEFAULT_PLAN_CONFIG.discountPercent,
+              oneTimeDiscountPercent: Number(data.oneTimeDiscountPercent ?? data.discountPercent ?? 10),
+              installment1DiscountPercent: Number(data.installment1DiscountPercent ?? data.discountPercent ?? 10),
+              installment2DiscountPercent: Number(data.installment2DiscountPercent ?? data.discountPercent ?? 10),
+            };
+            setCfg(merged);
+            // Update localStorage cache to match the DB so fallback is always fresh
             try {
-              const current = localStorage.getItem("bg_plan_config");
-              const existing = current ? JSON.parse(current) : {};
-              localStorage.setItem("bg_plan_config", JSON.stringify({ ...existing, ...data }));
+              localStorage.setItem("bg_plan_config", JSON.stringify(merged));
             } catch (e) {}
           }
         })
         .catch(() => {
-          loadConfig();
+          // DB unreachable — use localStorage fallback silently
+          const local = getStoredPlanConfig();
+          setCfg(local);
         });
     };
 
-    fetchConfig();
+    fetchFromDB();
 
-    const handleStorage = () => fetchConfig();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener("bg_config_updated", handleStorage);
-    window.addEventListener("focus", handleStorage);
+    // Re-fetch when admin updates config on any tab/device
+    const handleUpdate = () => fetchFromDB();
+    window.addEventListener("bg_config_updated", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
 
-    const interval = setInterval(fetchConfig, 5000);
+    // Poll every 10 seconds to stay in sync
+    const interval = setInterval(fetchFromDB, 10000);
     return () => {
       clearInterval(interval);
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("bg_config_updated", handleStorage);
-      window.removeEventListener("focus", handleStorage);
+      window.removeEventListener("bg_config_updated", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
     };
   }, []);
 
