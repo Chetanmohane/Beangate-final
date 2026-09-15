@@ -10,6 +10,7 @@ import RefCode from './models/RefCode.js';
 import PlanConfig from './models/PlanConfig.js';
 import SubAdmin from './models/SubAdmin.js';
 import MasterclassReg from './models/MasterclassReg.js';
+import Subscriber from './models/Subscriber.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -156,9 +157,6 @@ app.use(async (req, res, next) => {
     res.status(500).json({ message: 'Database connection failed: ' + error.message });
   }
 });
-
-// Basic Route
-app.get('/', (req, res) => { res.send('API is running...'); });
 
 // --- API Endpoints ---
 
@@ -333,6 +331,49 @@ app.delete('/api/masterclass-registrations/:id', async (req, res) => {
     else await MasterclassReg.deleteMany({ $or: [{ email: id }, { phone: id }] });
     res.json({ message: 'Masterclass Registration deleted' });
   } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+// 7. Newsletter Subscribers
+app.get('/api/subscribers', async (req, res) => {
+  try { const data = await Subscriber.find().sort({ timestamp: -1 }); res.json(data); }
+  catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ message: "Email is required!" });
+    }
+    const cleanEmail = String(email).trim().toLowerCase();
+    const existing = await Subscriber.findOne({ email: cleanEmail });
+    if (existing) {
+      return res.status(200).json({ message: "You are already subscribed!", subscriber: existing, alreadySubscribed: true });
+    }
+    const newSubscriber = new Subscriber({ email: cleanEmail });
+    const saved = await newSubscriber.save();
+    res.status(201).json({ message: "Subscribed successfully!", subscriber: saved });
+  } catch (error) { res.status(400).json({ message: error.message }); }
+});
+
+app.delete('/api/subscribers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (mongoose.Types.ObjectId.isValid(id)) await Subscriber.findByIdAndDelete(id);
+    else await Subscriber.deleteMany({ email: id.toLowerCase().trim() });
+    res.json({ message: 'Subscriber deleted' });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+});
+
+// Serve frontend static build files (SPA)
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+    if (err) res.send('API is running...');
+  });
 });
 
 // Start Server (local only)

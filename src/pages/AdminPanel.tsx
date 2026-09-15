@@ -6,13 +6,19 @@ import {
   FaChartBar, FaCheckCircle, FaClock, FaSearch,
   FaEye, FaEyeSlash, FaPlus, FaTrash, FaCopy,
   FaBars, FaTimes, FaShieldAlt, FaDatabase,
-  FaSun, FaMoon, FaChevronDown, FaChevronUp, FaLink, FaEdit, FaArrowLeft, FaWhatsapp, FaPlayCircle
+  FaSun, FaMoon, FaChevronDown, FaChevronUp, FaLink, FaEdit, FaArrowLeft, FaWhatsapp, FaPlayCircle, FaEnvelope
 } from "react-icons/fa";
 import { ThemeContext } from "../contexts/ThemeContext";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 
 // ─── Types ─────────────────────────────────────────────────────────────
+interface SubscriberItem {
+  _id?: string;
+  email: string;
+  timestamp?: string;
+}
+
 interface MasterclassReg {
   _id?: string;
   id?: string;
@@ -3864,16 +3870,128 @@ const MasterclassTab = ({
 };
 
 // ═══════════════════════════════════════════════════════════════════════
+// SUBSCRIBERS TAB
+// ═══════════════════════════════════════════════════════════════════════
+const SubscribersTab = ({
+  subscribers,
+  onDelete
+}: {
+  subscribers: SubscriberItem[];
+  onDelete: (email: string, id?: string) => void;
+}) => {
+  const [search, setSearch] = useState("");
+
+  const filtered = subscribers.filter(s =>
+    (s.email || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleDownloadCSV = () => {
+    if (filtered.length === 0) {
+      alert("No data to download.");
+      return;
+    }
+    const headers = ["Email", "Subscribed Date"];
+    const rows = filtered.map(s => [
+      `"${s.email}"`,
+      `"${s.timestamp ? new Date(s.timestamp).toLocaleString() : ""}"`
+    ].join(","));
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `newsletter_subscribers_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <FaEnvelope className="text-blue-500" /> Newsletter Subscribers
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Users who subscribed to receive updates about new batches and special offers.
+          </p>
+        </div>
+        <Button onClick={handleDownloadCSV} className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 cursor-pointer">
+          Export CSV ({filtered.length})
+        </Button>
+      </div>
+
+      <Card className="p-4 sm:p-6">
+        <div className="mb-4 relative">
+          <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <th className="py-3 px-4">#</th>
+                <th className="py-3 px-4">Email</th>
+                <th className="py-3 px-4">Subscribed Date</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-slate-500 dark:text-slate-400">
+                    No subscribers found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((item, idx) => (
+                  <tr key={item._id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                    <td className="py-3 px-4 text-slate-400">{idx + 1}</td>
+                    <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">{item.email}</td>
+                    <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs">
+                      {item.timestamp ? new Date(item.timestamp).toLocaleString() : "N/A"}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => onDelete(item.email, item._id)}
+                        className="text-rose-500 hover:text-rose-700 p-1 rounded transition cursor-pointer"
+                        title="Delete Subscriber"
+                      >
+                        <FaTrash />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════
 // DASHBOARD TAB
 // ═══════════════════════════════════════════════════════════════════════
 const DashboardTab = ({
   registrations,
   payments,
-  masterclassCount = 0
+  masterclassCount = 0,
+  subscribersCount = 0
 }: {
   registrations: Registration[];
   payments: Payment[];
   masterclassCount?: number;
+  subscribersCount?: number;
 }) => {
   const refCodes = loadCodes();
   const activeCodes = refCodes.filter(c => c.active).length;
@@ -3970,6 +4088,7 @@ const AdminPanel = () => {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [masterclassRegs, setMasterclassRegs] = useState<MasterclassReg[]>([]);
+  const [subscribers, setSubscribers] = useState<SubscriberItem[]>([]);
 
   const fetchRegistrationsAndPayments = async () => {
     // Sync referral codes from database
@@ -4027,6 +4146,19 @@ const AdminPanel = () => {
     } catch (e) {
       console.warn("Failed to fetch masterclass registrations from DB", e);
     }
+
+    // 4. Fetch Newsletter Subscribers — DB is the single source of truth
+    try {
+      const subRes = await fetch("/api/subscribers");
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        if (Array.isArray(subData)) {
+          setSubscribers(subData);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch subscribers from DB", e);
+    }
   };
 
   useEffect(() => {
@@ -4035,6 +4167,7 @@ const AdminPanel = () => {
     window.addEventListener("bg_registration_added", fetchRegistrationsAndPayments);
     window.addEventListener("bg_payment_added", fetchRegistrationsAndPayments);
     window.addEventListener("bg_masterclass_added", fetchRegistrationsAndPayments);
+    window.addEventListener("bg_subscriber_added", fetchRegistrationsAndPayments);
     window.addEventListener("storage", fetchRegistrationsAndPayments);
     window.addEventListener("focus", fetchRegistrationsAndPayments);
 
@@ -4043,11 +4176,23 @@ const AdminPanel = () => {
       window.removeEventListener("bg_registration_added", fetchRegistrationsAndPayments);
       window.removeEventListener("bg_payment_added", fetchRegistrationsAndPayments);
       window.removeEventListener("bg_masterclass_added", fetchRegistrationsAndPayments);
+      window.removeEventListener("bg_subscriber_added", fetchRegistrationsAndPayments);
       window.removeEventListener("storage", fetchRegistrationsAndPayments);
       window.removeEventListener("focus", fetchRegistrationsAndPayments);
       clearInterval(interval);
     };
   }, []);
+
+  const handleDeleteSubscriber = async (email: string, id?: string) => {
+    if (!window.confirm(`Are you sure you want to delete subscriber ${email}?`)) return;
+    setSubscribers(prev => prev.filter(s => s._id !== id && s.email !== email));
+    try {
+      const target = id || encodeURIComponent(email);
+      await fetch(`/api/subscribers/${target}`, { method: "DELETE" });
+    } catch (e) {
+      console.error("Failed to delete subscriber from database", e);
+    }
+  };
 
   const handleDeleteMasterclassReg = async (email: string, phone: string, id?: string) => {
     setMasterclassRegs(prev => prev.filter(r => {
@@ -4385,6 +4530,7 @@ const AdminPanel = () => {
         { id: "dashboard",     label: "Dashboard",     icon: <FaChartBar /> },
         { id: "registrations", label: "Registrations", icon: <FaUsers /> },
         { id: "masterclass",   label: "Masterclass",   icon: <FaPlayCircle /> },
+        { id: "subscribers",   label: "Subscribers",   icon: <FaEnvelope /> },
         { id: "payments",      label: "Payments",      icon: <FaMoneyBillWave /> },
         { id: "plans",         label: "Plans",         icon: <FaTags /> },
         { id: "referrals",     label: "Referral Codes",icon: <FaTags /> },
@@ -4457,6 +4603,7 @@ const AdminPanel = () => {
                 {activeTab === "dashboard" ? "Dashboard" 
                   : activeTab === "registrations" ? "Registrations" 
                   : activeTab === "masterclass" ? "Masterclass Registrations"
+                  : activeTab === "subscribers" ? "Newsletter Subscribers"
                   : activeTab === "payments" ? "Payments" 
                   : activeTab === "plans" ? "Plans & Pricing" 
                   : activeTab === "referrals" ? "Referral Codes"
@@ -4489,7 +4636,7 @@ const AdminPanel = () => {
 
         {/* Page Content */}
         <main className="flex-1 p-4 sm:p-5 lg:p-6 min-w-0 overflow-x-hidden overflow-y-auto">
-          {activeTab === "dashboard"      && <DashboardTab registrations={filteredRegistrations} payments={filteredPayments} masterclassCount={masterclassRegs.length} />}
+          {activeTab === "dashboard"      && <DashboardTab registrations={filteredRegistrations} payments={filteredPayments} masterclassCount={masterclassRegs.length} subscribersCount={subscribers.length} />}
           {activeTab === "registrations"  && (
             <RegistrationsTab
               registrations={filteredRegistrations}
@@ -4501,6 +4648,7 @@ const AdminPanel = () => {
             />
           )}
           {activeTab === "masterclass"    && <MasterclassTab registrations={masterclassRegs} onDelete={handleDeleteMasterclassReg} />}
+          {activeTab === "subscribers"    && userRole === "admin" && <SubscribersTab subscribers={subscribers} onDelete={handleDeleteSubscriber} />}
           {activeTab === "payments"       && <PaymentsTab payments={filteredPayments} onAddPayment={openDueModal} onDeletePayment={handleDeletePayment} userRole={userRole} />}
           {activeTab === "plans"          && <PlansTab />}
           {activeTab === "referrals"      && userRole === "admin" && <ReferralTab />}

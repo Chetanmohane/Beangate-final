@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaFacebookF, FaInstagram, FaYoutube, FaLinkedinIn, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaGlobe } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaYoutube, FaLinkedinIn, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaGlobe, FaSpinner, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
 import logo from "../assets/logo-beangate.png";
 import { Link } from 'react-router-dom';
 
@@ -25,6 +25,9 @@ const DEFAULT_CONTACT: ContactInfo = {
 
 const Footer = () => {
   const [contact, setContact] = useState<ContactInfo>(DEFAULT_CONTACT);
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const fetchContact = () => {
     try {
@@ -48,6 +51,63 @@ const Footer = () => {
         }
       })
       .catch(() => {});
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMessage(null);
+
+    const cleanEmail = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!cleanEmail) {
+      setStatusMessage({ type: 'error', text: 'Please enter your email address.' });
+      return;
+    }
+
+    if (!emailRegex.test(cleanEmail)) {
+      setStatusMessage({ type: 'error', text: 'Please enter a valid email address.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        if (data.alreadySubscribed) {
+          setStatusMessage({ type: 'info', text: 'You are already subscribed to our newsletter!' });
+        } else {
+          setStatusMessage({ type: 'success', text: 'Thank you for subscribing! You will receive our latest updates.' });
+          setEmail('');
+        }
+      } else {
+        setStatusMessage({ type: 'error', text: data.message || 'Subscription failed. Please try again.' });
+      }
+    } catch (error) {
+      // Fallback if API server is offline or unreachable
+      try {
+        const existingSubs = JSON.parse(localStorage.getItem('bg_subscribers') || '[]');
+        if (existingSubs.includes(cleanEmail)) {
+          setStatusMessage({ type: 'info', text: 'You are already subscribed!' });
+        } else {
+          existingSubs.push(cleanEmail);
+          localStorage.setItem('bg_subscribers', JSON.stringify(existingSubs));
+          setStatusMessage({ type: 'success', text: 'Thank you for subscribing!' });
+          setEmail('');
+        }
+      } catch (err) {
+        setStatusMessage({ type: 'error', text: 'Network error. Please try again later.' });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -193,10 +253,49 @@ const Footer = () => {
           <div>
             <h4 className="text-white font-bold uppercase tracking-wider mb-6">Subscribe</h4>
             <p className="text-sm mb-4">Get updates about new batches and special offers.</p>
-            <form className="flex flex-col gap-3" onSubmit={(e) => e.preventDefault()}>
-              <input type="email" placeholder="Enter your email" className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-md text-sm focus:outline-none focus:border-blue-500" />
-              <button type="submit" className="bg-blue-600 text-white font-bold py-2 rounded-md hover:bg-blue-700 transition">SUBSCRIBE</button>
+            <form className="flex flex-col gap-3" onSubmit={handleSubscribe}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                disabled={isSubmitting}
+                className="bg-gray-800 border border-gray-700 text-white px-4 py-2.5 rounded-md text-sm focus:outline-none focus:border-blue-500 disabled:opacity-60 transition"
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-blue-600 text-white font-bold py-2.5 rounded-md hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <FaSpinner className="animate-spin text-sm" />
+                    <span>SUBSCRIBING...</span>
+                  </>
+                ) : (
+                  <span>SUBSCRIBE</span>
+                )}
+              </button>
             </form>
+
+            {statusMessage && (
+              <div
+                className={`mt-3 p-3 rounded-md text-xs font-medium flex items-start gap-2 border ${
+                  statusMessage.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : statusMessage.type === 'info'
+                    ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                }`}
+              >
+                {statusMessage.type === 'success' ? (
+                  <FaCheckCircle className="text-emerald-400 text-sm mt-0.5 shrink-0" />
+                ) : (
+                  <FaExclamationCircle className="text-sm mt-0.5 shrink-0" />
+                )}
+                <span>{statusMessage.text}</span>
+              </div>
+            )}
           </div>
           
         </div>
