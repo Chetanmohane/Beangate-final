@@ -1442,7 +1442,7 @@ const ReferralTab = () => {
     };
   }, []);
   const [newCode, setNewCode] = useState("");
-  const [newDiscountPercent, setNewDiscountPercent] = useState<number>(10);
+  const [newDiscountPercent, setNewDiscountPercent] = useState<number>(7);
   const [newApplicablePlan, setNewApplicablePlan] = useState<"all" | "one-time" | "installment">("all");
   const [copied, setCopied] = useState("");
   const [search, setSearch] = useState("");
@@ -1666,16 +1666,41 @@ const ReferralTab = () => {
       {/* Add Code */}
       <Card className="p-6 mb-6">
         <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold mb-3">Add New Referral Code</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Code Name</label>
             <input
               type="text"
-              placeholder="e.g. SUMMER10 or ONETIME20"
+              placeholder="e.g. SUMMER7 or ONETIME20"
               value={newCode}
               onChange={(e) => setNewCode(e.target.value.toUpperCase())}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-xl text-slate-900 dark:text-white text-sm outline-none focus:border-indigo-500 transition duration-200"
             />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Discount Percentage (%)</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              placeholder="7"
+              value={newDiscountPercent}
+              onChange={(e) => setNewDiscountPercent(Number(e.target.value))}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-xl text-slate-900 dark:text-white text-sm outline-none focus:border-indigo-500 transition duration-200 font-semibold"
+            />
+            <div className="flex items-center gap-1.5 mt-2">
+              {[7, 10, 15, 20].map(pct => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setNewDiscountPercent(pct)}
+                  className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition cursor-pointer ${newDiscountPercent === pct ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-indigo-400"}`}
+                >
+                  {pct}% OFF
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -1905,7 +1930,7 @@ const ReferralTab = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">Discount Percentage (%)</label>
                 <div className="grid grid-cols-4 gap-2 mb-2">
-                  {[10, 15, 20, 25].map(pct => (
+                  {[7, 10, 15, 20].map(pct => (
                     <button
                       key={pct}
                       type="button"
