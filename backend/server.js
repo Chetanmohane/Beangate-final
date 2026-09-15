@@ -285,8 +285,10 @@ app.get('/api/planconfig', async (req, res) => {
   catch (error) { res.status(500).json({ message: error.message }); }
 });
 
-app.post('/api/planconfig/:id?', saveOrUpdatePlanConfig);
-app.put('/api/planconfig/:id?', saveOrUpdatePlanConfig);
+app.post('/api/planconfig', saveOrUpdatePlanConfig);
+app.post('/api/planconfig/:id', saveOrUpdatePlanConfig);
+app.put('/api/planconfig', saveOrUpdatePlanConfig);
+app.put('/api/planconfig/:id', saveOrUpdatePlanConfig);
 
 // 5. Sub-Admins
 app.get('/api/subadmins', async (req, res) => {
