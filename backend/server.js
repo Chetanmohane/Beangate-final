@@ -17,9 +17,11 @@ const __dirname = path.dirname(__filename);
 
 // Load .env only in local development (Vercel sets env vars itself)
 if (!process.env.VERCEL) {
-  const require = createRequire(import.meta.url);
-  const dotenv = require('dotenv');
-  dotenv.config({ path: path.join(__dirname, '.env') });
+  try {
+    const require = createRequire(import.meta.url);
+    const dotenv = require('dotenv');
+    dotenv.config({ path: path.join(__dirname, '.env') });
+  } catch (e) {}
 }
 
 const app = express();
@@ -366,18 +368,22 @@ app.delete('/api/subscribers/:id', async (req, res) => {
 });
 
 // Serve frontend static build files (SPA)
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+const isMainModule = Boolean(process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].endsWith('server')));
 
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) res.send('API is running...');
+if (isMainModule && !process.env.VERCEL) {
+  const distPath = path.join(__dirname, '../dist');
+  app.use(express.static(distPath));
+
+  app.get('/(.*)', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'), (err) => {
+      if (err) res.send('API is running...');
+    });
   });
-});
+}
 
-// Start Server (local only)
-if (!process.env.VERCEL) {
+// Start Server (local standalone execution only)
+if (isMainModule && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
