@@ -86,20 +86,21 @@ const Pricing = ({
     };
   }, []);
 
+  const [appliedCodeObj, setAppliedCodeObj] = useState<any>(null);
+
   useEffect(() => {
     if (appliedDiscount) {
       if (!promoCode) {
         setPromoCode("BEANGATE10");
       }
-      setPromoSuccess("Referral code applied! 10% Discount saved.");
+      const discVal = appliedCodeObj?.discountPercent || (pricingCfg?.discountPercent ?? 10);
+      setPromoSuccess(`Referral code applied! ${discVal}% Discount saved.`);
       setPromoError("");
     } else {
       setPromoCode("");
       setPromoSuccess("");
     }
-  }, [appliedDiscount]);
-
-  const [appliedCodeObj, setAppliedCodeObj] = useState<any>(null);
+  }, [appliedDiscount, appliedCodeObj, pricingCfg]);
 
   const handleApplyPromo = async () => {
     let allRefCodes: any[] = [];

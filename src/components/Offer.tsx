@@ -125,54 +125,67 @@ const Offer = ({
     setFormData((prev) => ({ ...prev, plan: selectedPlanId }));
   }, [selectedPlanId]);
 
+  const [appliedRefCodeObj, setAppliedRefCodeObj] = useState<any>(null);
+
   // Sync appliedDiscount prop with state messages
   useEffect(() => {
     if (appliedDiscount) {
       if (!referralCode) {
         setReferralCode("BEANGATE10");
       }
-      setPromoSuccess(`Referral code applied! ${cfg.discountPercent}% Discount saved.`);
+      const discVal = appliedRefCodeObj?.discountPercent || cfg.discountPercent || 10;
+      setPromoSuccess(`Referral code applied! ${discVal}% Discount saved.`);
       setPromoError("");
     } else {
       setReferralCode("");
       setPromoSuccess("");
     }
-  }, [appliedDiscount, cfg.discountPercent]);
+  }, [appliedDiscount, cfg.discountPercent, appliedRefCodeObj]);
 
-  const handleApplyReferral = () => {
-    let validCodes = ["BEANGATE10", "REF10", "MERN10"];
-    let parsed: any[] = [];
+  const handleApplyReferral = async () => {
+    let allRefCodes: any[] = [];
     try {
-      const stored = localStorage.getItem("bg_ref_codes");
-      if (stored) {
-        parsed = JSON.parse(stored);
-        validCodes = parsed.map((c: any) => c.code.trim().toUpperCase());
-      }
-    } catch (e) {
-      console.error(e);
+      const res = await fetch("/api/refcodes");
+      if (res.ok) allRefCodes = await res.json();
+    } catch {}
+
+    if (!allRefCodes.length) {
+      try {
+        const stored = localStorage.getItem("bg_ref_codes");
+        if (stored) allRefCodes = JSON.parse(stored);
+      } catch {}
     }
 
     const inputCode = referralCode.trim().toUpperCase();
-    if (validCodes.includes(inputCode)) {
-      const matchedCode = parsed.find((c: any) => c.code.trim().toUpperCase() === inputCode);
-      if (matchedCode && (!matchedCode.active || (matchedCode.uses || 0) > 0)) {
-        setPromoError("This referral code has already been used.");
+    const matched = allRefCodes.find((c: any) => c.code.trim().toUpperCase() === inputCode);
+
+    if (matched) {
+      if (!matched.active || (matched.uses || 0) > 0) {
+        setPromoError("This referral code has already been used or is inactive.");
         setPromoSuccess("");
         setAppliedDiscount(false);
-      } else {
-        setAppliedDiscount(true);
-        setPromoSuccess(`Referral code applied! ${cfg.discountPercent}% Discount saved.`);
-        setPromoError("");
+        setAppliedRefCodeObj(null);
+        return;
       }
+      setAppliedRefCodeObj(matched);
+      setAppliedDiscount(true);
+      const discVal = matched.discountPercent || parseInt(matched.discount) || 10;
+      const planNotice = matched.applicablePlan === "one-time" ? " (Valid for One-Time Plan Only)" : matched.applicablePlan === "installment" ? " (Valid for Installment Plan Only)" : "";
+      setPromoSuccess(`Referral code applied! ${discVal}% Discount saved.${planNotice}`);
+      setPromoError("");
     } else {
       const isFallbackDefault = ["BEANGATE10", "REF10", "MERN10"].includes(inputCode);
       if (isFallbackDefault) {
+        const defaultDisc = cfg.discountPercent || 10;
+        setAppliedRefCodeObj({ code: inputCode, discountPercent: defaultDisc, applicablePlan: "all" });
         setAppliedDiscount(true);
-        setPromoSuccess(`Referral code applied! ${cfg.discountPercent}% Discount saved.`);
+        setPromoSuccess(`Referral code applied! ${defaultDisc}% Discount saved.`);
         setPromoError("");
       } else {
         setPromoError("Invalid referral code.");
         setPromoSuccess("");
+        setAppliedDiscount(false);
+        setAppliedRefCodeObj(null);
       }
     }
   };
@@ -441,13 +454,15 @@ const Offer = ({
         registrationData: formData,
         planId: formData.plan,
         discountApplied: appliedDiscount,
-        referralCode: finalRefCode
+        referralCode: finalRefCode,
+        appliedCodeObj: appliedRefCodeObj
       }
     });
   };
 
-  const oneTimeDiscPct = cfg.oneTimeDiscountPercent ?? cfg.discountPercent ?? 10;
-  const inst1DiscPct = cfg.installment1DiscountPercent ?? cfg.discountPercent ?? 10;
+  const codeDiscPct = appliedRefCodeObj?.discountPercent ?? (appliedRefCodeObj?.discount ? parseInt(appliedRefCodeObj.discount) : null);
+  const oneTimeDiscPct = appliedRefCodeObj?.applicablePlan === "installment" ? 0 : (codeDiscPct !== null ? codeDiscPct : (cfg.oneTimeDiscountPercent ?? cfg.discountPercent ?? 10));
+  const inst1DiscPct = appliedRefCodeObj?.applicablePlan === "one-time" ? 0 : (codeDiscPct !== null ? codeDiscPct : (cfg.installment1DiscountPercent ?? cfg.discountPercent ?? 10));
   const selectedDiscPct = formData.plan === 'inst-1' ? inst1DiscPct : oneTimeDiscPct;
 
   const basePrice = formData.plan === 'inst-1' ? cfg.installment1Price : cfg.oneTimePrice;
